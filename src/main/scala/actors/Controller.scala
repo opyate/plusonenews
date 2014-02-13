@@ -28,7 +28,7 @@ class Controller extends Actor with ActorLogging {
     case Check(url, depth) =>
       log.debug("{} checking {}", depth, url)
       if (!cache(url) && depth > 0)
-        children += context.actorOf(getterProps(url, depth - 1), "getter-"+(depth-1))
+        children += context.actorOf(getterProps(url, depth - 1))
       cache += url
     case Getter.Done =>
       children -= sender
