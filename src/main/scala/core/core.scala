@@ -42,5 +42,6 @@ trait BootedCore extends Core {
 trait CorePlumbing {
   this: Core =>
   
-  val source = system.actorOf(Props(new SourceActor()))
+  def source = system.actorOf(Props(new SourceActor()), "source")
+
 }

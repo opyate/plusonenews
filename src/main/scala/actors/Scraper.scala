@@ -20,21 +20,19 @@ import spray.client.pipelining._
 import scala.concurrent.Future
 import models.Website
 
-object Controller {
+object Scraper {
   case class Result(website: Website, corpus: String)
   case object Abort
 }
 
-class Controller(website: Website) extends Actor with ActorLogging {
-  import Controller._
-  
-  context.setReceiveTimeout(10.seconds)
+class Scraper(website: Website) extends Actor with ActorLogging {
+  import Scraper._
   
   implicit val executor = context.dispatcher.asInstanceOf[Executor with ExecutionContext]
   
   val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
 
-  log.warning("Spawning a worker for url {}", website.url)
+  log.warning("Spawning a scraper for url {}", website.url)
   
   pipeline(Get(website.url)) pipeTo self
   
@@ -46,7 +44,9 @@ class Controller(website: Website) extends Actor with ActorLogging {
       context.stop(self)
     case _: Status.Failure => self ! Abort
     case ReceiveTimeout => self ! Abort
-    case Abort => context.stop(self)
+    case Abort =>
+      context.parent ! Abort
+      context.stop(self)
     case x =>
       log.error("Unknown message {}", x)
       self ! Abort
@@ -55,6 +55,7 @@ class Controller(website: Website) extends Actor with ActorLogging {
 
   def extract(body: String, xpath: Set[String]): String = {
     // TODO extract the data at 'xpath'
+    log.warning("TODO IMPLEMENT XPATH")
     body
   }
 }

@@ -17,15 +17,12 @@ object SourceActor {
 
 class SourceActor extends Actor with ActorLogging {
   
-  import Receptionist._
+  import ScrapeReceiver._
   import SourceActor._
   
   import context.dispatcher
 
-  val receptionist = context.actorOf(Props[Receptionist], "receptionist")
-  
-  context.setReceiveTimeout(10.seconds)
-  
+  val receiver = context.actorOf(Props[ScrapeReceiver], "receiver")
   
   // let's get started...
   if (Scheduler) {
@@ -35,13 +32,11 @@ class SourceActor extends Actor with ActorLogging {
   def receive = {
     case get @ Get(id, website) =>
       log.info("Processing {}", website)
-      receptionist ! get
-    case Result(website, set) =>
-      log.debug(set.toVector.sorted.mkString(s"RESULTS for '${website.url}':\n", "\n", "\n"))
+      receiver ! get
+    case Result(website, corpus) =>
+      log.info(s"RESULT for ${website.url} contains ${corpus.size} characters")
     case Failed(website) =>
       log.error(s"Failed to fetch '${website.url}'\n")
-    case ReceiveTimeout =>
-      context.stop(self)
     case ProcessDatabase =>
       val id = Id()
       val website = models.dao.getNextUnprocessed
