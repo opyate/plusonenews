@@ -8,28 +8,29 @@ import akka.actor.ActorLogging
 import akka.actor.ReceiveTimeout
 import scala.concurrent.duration._
 import akka.actor.ActorRef
+import models._
 
 object Controller {
-  case class Check(url: String, depth: Int)
-  case class Result(links: Set[String])
+  case class Check(website: Website, depth: Int)
+  case class Result(websites: Set[Website])
 }
 
 class Controller extends Actor with ActorLogging {
   import Controller._
   
-  var cache = Set.empty[String]
+  var cache = Set.empty[Website]
   var children = Set.empty[ActorRef]
   
   context.setReceiveTimeout(10.seconds)
   
-  def getterProps(url: String, depth: Int): Props = Props(new Getter(url, depth))
+  def getterProps(website: Website, depth: Int): Props = Props(new Getter(website, depth))
   
   def receive = {
-    case Check(url, depth) =>
-      log.debug("{} checking {}", depth, url)
-      if (!cache(url) && depth > 0)
-        children += context.actorOf(getterProps(url, depth - 1))
-      cache += url
+    case Check(website, depth) =>
+      log.debug("{} checking {}", depth, website.url)
+      if (!cache(website) && depth > 0)
+        children += context.actorOf(getterProps(website, depth - 1))
+      cache += website
     case Getter.Done =>
       children -= sender
       if (children.isEmpty)

@@ -33,20 +33,20 @@ class SourceActor extends Actor with ActorLogging {
   }
   
   def receive = {
-    case get @ Get(id, link) =>
-      log.info("Processing {}", link)
+    case get @ Get(id, website) =>
+      log.info("Processing {}", website)
       receptionist ! get
-    case Result(url, set) =>
-      log.debug(set.toVector.sorted.mkString(s"RESULTS for '$url':\n", "\n", "\n"))
-    case Failed(url) =>
-      log.error(s"Failed to fetch '$url'\n")
+    case Result(website, set) =>
+      log.debug(set.toVector.sorted.mkString(s"RESULTS for '${website.url}':\n", "\n", "\n"))
+    case Failed(website) =>
+      log.error(s"Failed to fetch '${website.url}'\n")
     case ReceiveTimeout =>
       context.stop(self)
     case ProcessDatabase =>
       val id = Id()
       val website = models.dao.getNextUnprocessed
-      log.warning("Processing website {}", website)
-      receptionist ! Get(id, website)
+      //receptionist ! Get(id, website)
+      self ! Get(id, website)
       sender ! id
     case x => log.error("Unknown message {}", x)
   }

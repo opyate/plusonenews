@@ -9,28 +9,29 @@ import scala.concurrent.ExecutionContext
 import spray.http._
 import spray.client.pipelining._
 import scala.concurrent.Future
+import models.Website
 
 object Getter {
   case object Done
   case object Abort
 }
 
-class Getter(url: String, depth: Int) extends Actor with ActorLogging {
+class Getter(website: Website, depth: Int) extends Actor with ActorLogging {
   import Getter._
 
   implicit val executor = context.dispatcher.asInstanceOf[Executor with ExecutionContext]
   
   val pipeline: HttpRequest => Future[HttpResponse] = sendReceive
 
-  log.warning("Spawning a worker for url {}", url)
+  log.warning("Spawning a worker for url {}", website.url)
   
-  pipeline(Get(url)) pipeTo self
+  pipeline(Get(website.url)) pipeTo self
 
   def receive = {
     case response: HttpResponse =>
       val body = response.entity.asString
-      for (link <- findLinks(body))
-        context.parent ! Controller.Check(link, depth)
+      for (link <- extract(body, Set.empty[String]))
+        context.parent ! Controller.Check(website, depth)
       stop()
     case _: Status.Failure => stop()
     case Abort             => stop()
@@ -44,16 +45,9 @@ class Getter(url: String, depth: Int) extends Actor with ActorLogging {
     context.stop(self)
   }
 
-  val A_TAG = "(?i)<a ([^>]+)>.+?</a>".r
-  val HREF_ATTR = """\s*(?i)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^'">\s]+))\s*""".r
-
-  def findLinks(body: String): Iterator[String] = {
-    for {
-      anchor <- A_TAG.findAllMatchIn(body)
-      HREF_ATTR(dquot, quot, bare) <- anchor.subgroups
-    } yield if (dquot != null) dquot
-    else if (quot != null) quot
-    else bare
+  def extract(body: String, xpath: Set[String]): Iterable[String] = {
+    // TODO extract the data at 'xpath'
+    body :: Nil
   }
 
 }
