@@ -12,16 +12,18 @@ object Receptionist {
   val JobLimit = 3
   
   private case class Job(client: ActorRef, website: Website)
-  case class Result(website: Website, links: Set[String])
+  case class Result(website: Website, corpus: String)
   case class Failed(website: Website)
 }
 
 class Receptionist extends Actor with ActorLogging {
   import Receptionist._
   
-  def controllerProps: Props = Props[Controller]
+  def controllerProps(website: Website): Props = Props(new Controller(website))
 
   var reqNo = 0
+  
+  var children = Set.empty[ActorRef]
 
   def receive = waiting
 
@@ -32,9 +34,13 @@ class Receptionist extends Actor with ActorLogging {
   }
 
   def running(queue: Vector[Job]): Receive = {
-    case Controller.Result(websites) =>
+    case Controller.Result(website, corpus) =>
       val job = queue.head
-      job.client ! Result(job.website, Set.empty[String])
+      job.client ! Result(job.website, corpus)
+      children -= sender
+      if (children.isEmpty) {
+        log.debug("All Children done")
+      }
       context.stop(sender)
       context.become(runNext(queue.tail))
     case Get(id, website) =>
@@ -45,8 +51,8 @@ class Receptionist extends Actor with ActorLogging {
     reqNo += 1
     if (queue.isEmpty) waiting
     else {
-      val controller = context.actorOf(controllerProps, s"controller-$reqNo")
-      controller ! Controller.Check(queue.head.website, 2)
+      children +=  context.actorOf(controllerProps(queue.head.website), s"controller-$reqNo")
+      
       running(queue)
     }
   }
