@@ -19,13 +19,16 @@ import spray.http._
 import spray.client.pipelining._
 import scala.concurrent.Future
 import models.Website
+import models.Id
+import org.jsoup.Jsoup
+import org.jsoup.select.Elements
 
 object Scraper {
-  case class Result(website: Website, corpus: String)
-  case object Abort
+  case class Abort(jobId: Id)
 }
 
-class Scraper(website: Website) extends Actor with ActorLogging {
+class Scraper(jobId: Id, website: Website) extends Actor with ActorLogging {
+  import ScrapeReceiver.Result
   import Scraper._
   
   implicit val executor = context.dispatcher.asInstanceOf[Executor with ExecutionContext]
@@ -39,23 +42,30 @@ class Scraper(website: Website) extends Actor with ActorLogging {
   def receive = {
     case response: HttpResponse =>
       val body = response.entity.asString
-      val corpus = extract(body, Set.empty[String])
-      context.parent ! Result(website, corpus)
+      val corpus = extract(body, getSelectorFor(website))
+      context.parent ! Result(jobId, website, corpus)
       context.stop(self)
-    case _: Status.Failure => self ! Abort
-    case ReceiveTimeout => self ! Abort
-    case Abort =>
-      context.parent ! Abort
+    case _: Status.Failure => self ! Abort(jobId)
+    case ReceiveTimeout => self ! Abort(jobId)
+    case abort: Abort =>
+      context.parent ! abort
       context.stop(self)
     case x =>
       log.error("Unknown message {}", x)
-      self ! Abort
+      self ! Abort(jobId)
   }
   
 
-  def extract(body: String, xpath: Set[String]): String = {
-    // TODO extract the data at 'xpath'
-    log.warning("TODO IMPLEMENT XPATH")
-    body
+  def extract(body: String, selector: String): String = {
+    val doc = Jsoup.parse(body)
+    val elem: Elements = doc.select(selector)
+    elem.text()
+  }
+  
+  // TODO move this elsewhere
+  def getSelectorFor(website: Website) = website.url match {
+    case s: String if (s.contains("businessinsider.com")) => "#content"
+    case s: String if (s.contains("buzzfeed.com")) => ".buzz > div:nth-child(5)"
+    case _ => "body"
   }
 }

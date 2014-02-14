@@ -18,10 +18,21 @@ class Websites(tag: Tag) extends Table[Website](tag, "website") {
   def * = (guid, name, description, url, status, updated, created) <> (Website.tupled, Website.unapply)
 }
 
+class Scrapes(tag: Tag) extends Table[Scrape](tag, "scrape") {
+  def guid = column[String]("guid", O.PrimaryKey)
+  def websiteGuid = column[String]("website_guid")
+  def scrape = column[String]("scrape")
+  def updated = column[DateTime]("updated")
+  def created = column[DateTime]("created")
+  // Every table needs a * projection with the same type as the table's type parameter
+  def * = (guid, websiteGuid, scrape, updated, created) <> (Scrape.tupled, Scrape.unapply)
+}
+
 object dao {
   
   // 
   val websites = TableQuery[Websites]
+  val scrapes = TableQuery[Scrapes]
 
   val dbUser = System.getenv("MYSQL_USER")
   val dbPassword = System.getenv("MYSQL_PASSWD")
@@ -54,6 +65,27 @@ object dao {
     }
   }
   
+  def saveScrape(text: String, id: Id, website: Website): Scrape = {
+    val now = DateTime.now
+    db withTransaction { implicit session: Session =>
+      // update the website status
+      val q = for { c <- websites if c.guid === website.guid } yield (c.status, c.updated)
+      q.update((2, now))
+      
+      // save the scrape
+      val scrape = Scrape(text, id, website)
+      scrapes += scrape
+      scrape
+    }
+  }
+  
+  def getScrape(id: String): Scrape = {
+    db withSession { implicit session: Session =>
+      scrapes.filter(_.guid === id).first
+    }
+  }
+  
+  // TODO implement allScrapesForWebsite
 }
 
 

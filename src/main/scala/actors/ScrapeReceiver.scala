@@ -11,15 +11,15 @@ object ScrapeReceiver {
   // TODO set based on certain metrics
   val JobLimit = 3
   
-  private case class Job(client: ActorRef, website: Website)
-  case class Result(website: Website, corpus: String)
-  case class Failed(website: Website)
+  private case class Job(client: ActorRef, jobId: Id, website: Website)
+  case class Result(jobId: Id, website: Website, corpus: String)
+  case class Failed(jobId: Id, website: Website)
 }
 
 class ScrapeReceiver extends Actor with ActorLogging {
   import ScrapeReceiver._
   
-  def scraperProps(website: Website): Props = Props(new Scraper(website))
+  def scraperProps(jobId: Id, website: Website): Props = Props(new Scraper(jobId, website))
 
   var reqNo = 0
   
@@ -30,15 +30,15 @@ class ScrapeReceiver extends Actor with ActorLogging {
   val waiting: Receive = {
     case get @ Get(id, website) =>
       log.debug("ScrapeReceiver received {}", get)
-      context.become(runNext(Vector(Job(sender, website))))
+      context.become(runNext(Vector(Job(sender, id, website))))
   }
 
   def running(queue: Vector[Job]): Receive = {
-    case Scraper.Result(website, corpus) =>
+    case Result(id, website, corpus) =>
       log.info(s"ScraperReceiver received corpus with ${corpus.size} characters")
       val job = queue.head
       log.info(s"Sending result to ${job.client.path.name}")
-      job.client ! Result(job.website, corpus)
+      job.client ! Result(id, job.website, corpus)
       
       // let the child go
       log.info(s"Children before: ${children.size}")
@@ -61,14 +61,15 @@ class ScrapeReceiver extends Actor with ActorLogging {
       
       context.become(runNext(queue.tail))
     case Get(id, website) =>
-      context.become(enqueueJob(queue, Job(sender, website)))
+      context.become(enqueueJob(queue, Job(sender, id, website)))
   }
 
   def runNext(queue: Vector[Job]): Receive = {
     reqNo += 1
     if (queue.isEmpty) waiting
     else {
-      children +=  context.actorOf(scraperProps(queue.head.website), s"scraper-$reqNo")
+      val job = queue.head
+      children +=  context.actorOf(scraperProps(job.jobId, job.website), s"scraper-$reqNo")
       
       running(queue)
     }
@@ -77,7 +78,7 @@ class ScrapeReceiver extends Actor with ActorLogging {
   // since we don't want to bombard our friends with hits, we limit ourselves to only a few scrape jobs
   def enqueueJob(queue: Vector[Job], job: Job): Receive = {
     if (queue.size > JobLimit) {
-      sender ! Failed(job.website)
+      sender ! Failed(job.jobId, job.website)
       running(queue)
     } else running(queue :+ job)
   }

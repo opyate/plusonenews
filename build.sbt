@@ -45,6 +45,7 @@ libraryDependencies ++= Seq(
   "joda-time" % "joda-time" % "2.3",
   "org.joda" % "joda-convert" % "1.5",
   "com.github.tototoshi" %% "slick-joda-mapper" % "1.0.0",
+  "org.jsoup" % "jsoup" % "1.7.3",
   "org.specs2" %% "specs2" % "2.2.2" % "test",
   "io.spray" % "spray-testkit" % "1.2.0" % "test",
   "com.typesafe.akka" %% "akka-testkit" % "2.2.3" % "test"

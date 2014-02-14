@@ -12,7 +12,7 @@ import spray.json.JsNumber
 case class Link(url: String)
 case class Id(id: String)
 object Id {
-  def apply(): Id = Id(UUID.randomUUID().toString())
+  def apply(): Id = Id(UUID.randomUUID().toString().replaceAll("-", ""))
 }
 case class Get(id: Id, website: Website)
 
@@ -33,6 +33,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val linkFormat = jsonFormat1(Link.apply)
   implicit val idFormat = jsonFormat1(Id.apply)
   implicit val websiteFormat = jsonFormat7(Website.apply)
+  implicit val scrapeFormat = jsonFormat5(Scrape.apply)
 }
 
 // database
@@ -55,5 +56,13 @@ object Util {
   private [this] def md5(s: String) = instance.digest(s.getBytes) 
   def md5hex(s: String) = {
     md5(s).map("%02x".format(_)).mkString
+  }
+}
+
+case class Scrape(guid: String, websiteGuid: String, scrape: String, updated: DateTime, created: DateTime)
+object Scrape extends ((String, String, String, DateTime, DateTime) => Scrape) {
+  def apply(text: String, id: Id, website: Website): Scrape = {
+    val now = DateTime.now
+    Scrape(id.id, website.guid, text, now, now)
   }
 }

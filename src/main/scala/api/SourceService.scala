@@ -48,6 +48,14 @@ class SourceService(source: ActorRef)(implicit executionContext: ExecutionContex
             }
           }
         }
+      } ~ path("debug-scrape" / Segment) { scrapeId =>
+        get {
+          respondWithMediaType(`application/json`) {
+            complete {
+              models.dao.getScrape(scrapeId)
+            }
+          }
+        }
       }
     }
   }
