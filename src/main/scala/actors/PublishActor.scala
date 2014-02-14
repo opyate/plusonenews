@@ -40,13 +40,31 @@ class PublishActor(jobId: Id, website: Website, corpus: String) extends Actor wi
   val markovicGeneratorAPI = System.getenv("MARKOVIC") + "sentence/I/don%E2%80%99t"
   pipeline(Get(markovicGeneratorAPI)) pipeTo self
   
+  val Re = "^([\\d]+)(.*)".r
+  
   def receive: Receive = {
     case response: HttpResponse =>
       val body = response.entity.asString
       
       log.error("The publisher will publish this: " + body)
       
-      pipeline(Post(System.getenv("PUBLISHER_API"), FormData(Map("subject" -> website.name, "body" -> body))))
+      val (num, subject) = website.name match {
+        case Re(num, rest) => (num, (num.toInt + 1) + " " + rest)
+        case _ => (-1, "1 Very Good Reason This Post Might Suck")
+      }
+      val blurb = if (num == -1) {
+        "We got the counts wrong. But here's some rubbish anyway:"
+      } else {
+        s"Well, previously it was ${num}, but we added this gem:"
+      }
+      val newBody = s"""
+${website.url}
+
+$blurb
+${body}
+"""
+      
+      pipeline(Post(System.getenv("PUBLISHER_API"), FormData(Map("subject" -> subject, "body" -> newBody))))
       
       context.stop(self)
     case x =>
