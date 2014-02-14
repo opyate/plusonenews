@@ -10,7 +10,7 @@ import akka.actor.ActorLogging
 object SourceActor {
   // TODO tweak these based on metrics
   val Delay = 60
-  val Scheduler = false
+  val Scheduler = true
   
   case object ProcessDatabase
 }
