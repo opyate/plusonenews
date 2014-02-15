@@ -51,6 +51,9 @@ class SourceActor extends Actor with ActorLogging {
       //receptionist ! Get(id, website)
       self ! Get(id, website)
       sender ! id
+      if (Scheduler) {
+        context.system.scheduler.scheduleOnce(Delay seconds, self, ProcessDatabase)
+      }
     case x => log.error("Unknown message {}", x)
   }
 }
